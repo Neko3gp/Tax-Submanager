@@ -1,0 +1,52 @@
+# Camino OPCIONAL: levanta PostgreSQL + backend (Django) + frontend (React) con un solo comando.
+#   docker compose up --build
+# Frontend: http://localhost:5173 · API: http://localhost:8000/api/
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: taxsub
+      POSTGRES_USER: tax
+      POSTGRES_PASSWORD: tax
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tax -d taxsub"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  backend:
+    build: ./backend
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: taxsub
+      POSTGRES_USER: tax
+      POSTGRES_PASSWORD: tax
+      DJANGO_DEBUG: "1"
+      DJANGO_ALLOWED_HOSTS: "*"
+      BACKUP_DIR: /data/backups
+    volumes:
+      - ./backend:/app
+      - backups:/data/backups
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_PROXY: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  backups:
